@@ -1,0 +1,59 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/php/Dockerfile
+    image: test
+    container_name: test-app
+    restart: unless-stopped
+    working_dir: /var/www/
+    env_file:
+        - ./infrastructure/docker/php/local.env
+    volumes:
+      - ./src:/var/www
+    ports:
+      - "80:80"
+      - "5173:5173"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      test-network:
+        aliases:
+          - test-app
+  cli:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/php/Dockerfile
+    image: cli
+    container_name: cli
+    restart: unless-stopped
+    working_dir: /var/www/
+    env_file:
+      - ./infrastructure/docker/php/test.env
+    networks:
+      test-network:
+        aliases:
+          - cli
+  db:
+    image: mysql:8.0.33
+    container_name: test-db
+    volumes:
+#      - ./.docker/mysql/init/coded_echo.sql:/docker-entrypoint-initdb.d/coded_echo.sql
+      - ./infrastructure/docker/mysql/data:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: "test"
+      MYSQL_ROOT_PASSWORD: "test"
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      timeout: 20s
+      retries: 10
+    networks:
+      test-network:
+        aliases:
+          - test-db
+networks:
+  test-network:
+    driver: bridge
